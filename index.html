@@ -1,0 +1,385 @@
+<!--thanks to johnburnmurdoch, code mostly adapted from here: https://observablehq.com/@johnburnmurdoch/bar-chart-race-->
+
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <script src='https://d3js.org/d3.v5.min.js'></script>
+    <script src="https://d3js.org/d3-selection-multi.v1.min.js"></script>
+    
+    <style>
+        text{
+            font-size: 16px;
+            font-family: Open Sans, sans-serif;
+        }
+        text.title{
+            font-size: 24px;
+            font-weight: 500;
+        }
+        text.subTitle{
+            font-weight: 500;
+            fill: #777777;
+        }
+        text.caption{
+            font-weight: 400;
+            font-size: 14px;
+            fill: #777777;
+        }
+        text.label{
+            font-weight: 600;
+            fill:#D8D8D8;
+        }
+        text.yearText{
+            font-size: 64px;
+            font-weight: 700;
+            opacity: 0.25;
+        }
+        .tick text {
+            fill: #777777;
+        }
+        .xAxis .tick:nth-child(2) text {
+            text-anchor: start;
+        }
+        .tick line {
+            shape-rendering: CrispEdges;
+            stroke: #dddddd;
+        }
+        .tick line.origin{
+            stroke: #aaaaaa;
+        }
+        path.domain{
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        
+        // This is a lightly modified version of Mike Bostock’s text halo function from @d3/connected-scatterplot
+        halo = function(text, strokeWidth) {
+            text.select(function() { return this.parentNode.insertBefore(this.cloneNode(true), this); })
+            .styles({
+                fill: '#ffffff',
+                stroke: '#ffffff',
+                'stroke-width': strokeWidth,
+                'stroke-linejoin': 'round',
+                opacity: 1
+            });
+        }
+        height = 600;
+        width = 600;
+        tickDuration = 1500;
+        top_n = 8;
+        
+        //const svg = d3.select(DOM.svg(width, height));
+        const $chart = d3.select('body');
+        const $chartInner = d3.select('.chart__inner');
+        const $svg = $chart.append('svg')
+        .attr('class', 'chart__svg')
+        .attr('height', height)
+        .attr('width', width)
+        const $plot = $svg.append('g')
+        .attr('class', 'plot')
+        const margin = {
+            top: 80,
+            right: 0,
+            bottom: 5,
+            left: 100
+        };
+        
+        let barPadding = (height-(margin.bottom+margin.top))/(top_n*5);
+        
+        let title = $svg.append('text')
+        .attrs({
+            class: 'title',
+            y: 18
+        })
+        .html('EU-Elections 1979 to 2019 in Germany');
+        
+        let subTitle = $svg.append('text')
+        .attrs({
+            class: 'subTitle',
+            y: 55
+        })
+        .html('Votes, %');
+        
+        let caption = $svg.append('text')
+        .attrs({
+            class: 'caption',
+            x: width,
+            y: height-5
+        })
+        .styles({
+            'text-anchor': 'end'
+        })
+        
+        let year = 1979;
+        
+        
+        d3.csv('euvotes_long.csv')
+        .then(function(data) {
+            
+            data.forEach(d => {
+                console.log(d.party)
+                d.value = +d.value,
+                d.value = isNaN(d.value) ? 0 : d.value,
+                d.year = +d.year
+                
+            });
+            
+            let yearSlice = data.filter(d => d.year == year && !isNaN(d.value))
+            .sort((a,b) => b.value - a.value)
+            .slice(0,top_n);
+            
+            yearSlice.forEach((d,i) => d.rank = i);
+            
+            let x = d3.scaleLinear()
+            .domain([0, d3.max(yearSlice, d => d.value)])
+            .range([margin.left, width-margin.right-65]);
+            
+            let y = d3.scaleLinear()
+            .domain([top_n, 0])
+            .range([height-margin.bottom, margin.top]);
+            
+            let xAxis = d3.axisTop()
+            .scale(x)
+            .ticks(width > 500 ? 5:2)
+            .tickSize(-(height-margin.top-margin.bottom))
+            .tickFormat(d => d3.format(',')(d));
+            
+            $svg.append('g')
+            .attrs({
+                class: 'axis xAxis',
+                transform: `translate(0, ${margin.top})`
+            })
+            .call(xAxis)
+            .selectAll('.tick line')
+            .classed('origin', d => d == 0);
+            
+            $svg.selectAll('rect.bar')
+            .data(yearSlice, d => d.party)
+            .enter()
+            .append('rect')
+            .attrs({
+                class: 'bar',
+                x: x(0)+1,
+                width: d => x(d.value)-x(0)-1,
+                y: d => y(d.rank)+5,
+                height: y(1)-y(0)-barPadding
+            })
+            .styles({
+                fill: d => d.party == 'SPD' ? 'red' : 
+                    d.party == 'AfD' ? 'blue' :
+                    d.party == 'CDU / CSU' ? 'black' :
+                    d.party == 'Grüne' ? 'green' :
+                    d.party == 'Linke' ? '#990073':
+                    d.party == 'Andere' ? 'grey' :
+                    d.party == 'FDP' ? 'yellow' : 
+                    d.party == 'REP'? 'blue' : 'grey'
+            });
+            
+            $svg.selectAll('text.label')
+            .data(yearSlice, d => d.party)
+            .enter()
+            .append('text')
+            .styles('fill', 'grey')
+            .attrs({
+                class: 'label',
+                x: d => x(d.value)-8,
+                y: d => y(d.rank)+5+((y(1)-y(0))/2)+1,
+                'text-anchor': 'end'
+            })
+            .html(d => d.party);
+            
+            $svg.selectAll('text.valueLabel')
+            .data(yearSlice, d => d.party)
+            .enter()
+            .append('text')
+            .attrs({
+                class: 'valueLabel',
+                x: d => x(d.value)+5,
+                y: d => y(d.rank)+5+((y(1)-y(0))/2)+1,
+            })
+            .text(d => d3.format(',.0f')(d.lastValue));
+            
+            let yearText = $svg.append('text')
+            .attrs({
+                class: 'yearText',
+                x: width-margin.right,
+                y: height-25
+            })
+            .styles({
+                'text-anchor': 'end'
+            })
+            .html(~~year)
+            .call(halo, 10);
+            
+            let ticker = d3.interval(e => {
+                
+                yearSlice = data.filter(d => d.year == year && !isNaN(d.value))
+                .sort((a,b) => b.value - a.value)
+                .slice(0,top_n);
+                
+                yearSlice.forEach((d,i) => d.rank = i);
+                
+                x.domain([0, d3.max(yearSlice, d => d.value)]);
+                
+                $svg.select('.xAxis')
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .call(xAxis);
+                
+                let bars = $svg.selectAll('.bar').data(yearSlice, d => d.party);
+                
+                bars
+                .enter()
+                .append('rect')
+                .attrs({
+                    class: d => `bar ${d.party.replace(/\s/g,'_')}`,
+                    x: x(0)+1,
+                    width: d => x(d.value)-x(0)-1,
+                    y: d => y(top_n+1)+5,
+                    height: y(1)-y(0)-barPadding
+                })
+                .styles({
+                    fill: d =>d.color= d.party == 'SPD' ? 'red' : 
+                    d.party == 'AfD' ? 'blue' :
+                    d.party == 'CDU / CSU' ? 'black' :
+                    d.party == 'Grüne' ? 'green' :
+                    d.party == 'Linke' ? '#990073':
+                    d.party == 'Andere' ? 'grey' :
+                    d.party == 'FDP' ? 'yellow' : 
+                    d.party == 'REP'? 'blue' : 'grey'
+                })
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    y: d => y(d.rank)+5
+                });
+                
+                bars
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    width: d => x(d.value)-x(0)-1,
+                    y: d => y(d.rank)+5
+                });
+                
+                bars
+                .exit()
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    width: d => x(d.value)-x(0)-1,
+                    y: d => y(top_n+1)+5
+                })
+                .remove();
+                
+                let labels = $svg.selectAll('.label').data(yearSlice, d => d.party);
+                
+                labels
+                .enter()
+                .append('text')
+                .attrs({
+                    class: 'label',
+                    x: d => x(d.value)-8,
+                    y: d => y(top_n+1)+5+((y(1)-y(0))/2),
+                    'text-anchor': 'end'
+                })
+                .html(d => d.party)    
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    y: d => y(d.rank)+5+((y(1)-y(0))/2)+1,
+                });
+                
+                labels
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    x: d => x(d.value)-8,
+                    y: d => y(d.rank)+5+((y(1)-y(0))/2)+1
+                });
+                
+                labels
+                .exit()
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    x: d => x(d.value)-8,
+                    y: d => y(top_n+1)+5
+                })
+                .remove();
+                
+                let valueLabels = $svg.selectAll('.valueLabel').data(yearSlice, d => d.party);
+                
+                valueLabels
+                .enter()
+                .append('text')
+                .attrs({
+                    class: 'valueLabel',
+                    x: d => x(d.value)+5,
+                    y: d => y(top_n+1)+5,
+                })
+                .text(d => d3.format(',.0f')(d.value))
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    y: d => y(d.rank)+5+((y(1)-y(0))/2)+1
+                });
+                
+                valueLabels
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    x: d => x(d.value)+5,
+                    y: d => y(d.rank)+5+((y(1)-y(0))/2)+1
+                })
+                .tween("text", function(d) {
+                    let i = d3.interpolateRound(d.lastValue, d.value);
+                    return function(t) {
+                        this.textContent = d3.format(',')(i(t));
+                    };
+                });
+                
+                valueLabels
+                .exit()
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attrs({
+                    x: d => x(d.value)+5,
+                    y: d => y(top_n+1)+5
+                })
+                .remove();
+                
+                yearText.html(~~year);
+                
+                if(year == 2019) ticker.stop();
+                year = d3.format('.1f')((+year) + 5);
+            },tickDuration);
+            
+            
+            // This is a lightly modified version of Mike Bostock’s text halo function from @d3/connected-scatterplot
+            halo = function(text, strokeWidth) {
+                text.select(function() { return this.parentNode.insertBefore(this.cloneNode(true), this); })
+                .styles({
+                    fill: '#ffffff',
+                    stroke: '#ffffff',
+                    'stroke-width': strokeWidth,
+                    'stroke-linejoin': 'round',
+                    opacity: 1
+                });
+            }
+        }) 
+    </script>
+</body>
