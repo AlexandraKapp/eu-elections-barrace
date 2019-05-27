@@ -68,8 +68,8 @@
         }
         height = 600;
         width = 600;
-        tickDuration = 1500;
-        top_n = 8;
+        tickDuration = 1400;
+        top_n = 7;
         
         //const svg = d3.select(DOM.svg(width, height));
         const $chart = d3.select('body');
@@ -366,7 +366,7 @@
                 
                 if(year == 2019) ticker.stop();
                 year = d3.format('.1f')((+year) + 5);
-            },tickDuration);
+            },1600);
             
             
             // This is a lightly modified version of Mike Bostock’s text halo function from @d3/connected-scatterplot
