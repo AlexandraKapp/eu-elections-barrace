@@ -68,7 +68,7 @@
         }
         height = 600;
         width = 600;
-        tickDuration = 1400;
+        tickDuration = 1500;
         top_n = 7;
         
         //const svg = d3.select(DOM.svg(width, height));
@@ -120,8 +120,8 @@
         .then(function(data) {
             
             data.forEach(d => {
-                console.log(d.party)
                 d.value = +d.value,
+                d.lastValue = +d.lastValue,
                 d.value = isNaN(d.value) ? 0 : d.value,
                 d.year = +d.year
                 
@@ -337,36 +337,36 @@
                 });
                 
                 valueLabels
-                .transition()
-                .duration(tickDuration)
-                .ease(d3.easeLinear)
-                .attrs({
-                    x: d => x(d.value)+5,
-                    y: d => y(d.rank)+5+((y(1)-y(0))/2)+1
-                })
-                .tween("text", function(d) {
-                    let i = d3.interpolateRound(d.lastValue, d.value);
-                    return function(t) {
-                        this.textContent = d3.format(',')(i(t));
-                    };
-                });
-                
-                valueLabels
-                .exit()
-                .transition()
-                .duration(tickDuration)
-                .ease(d3.easeLinear)
-                .attrs({
-                    x: d => x(d.value)+5,
-                    y: d => y(top_n+1)+5
-                })
-                .remove();
-                
-                yearText.html(~~year);
+      .transition()
+        .duration(tickDuration)
+        .ease(d3.easeLinear)
+        .attrs({
+          x: d => x(d.value)+5,
+          y: d => y(d.rank)+5+((y(1)-y(0))/2)+1
+        })
+        .tween("text", function(d) {
+          let i = d3.interpolateRound(d.lastValue, d.value);
+          return function(t) {
+            this.textContent = d3.format(',')(i(t));
+          };
+        });
+    
+    valueLabels
+      .exit()
+      .transition()
+        .duration(tickDuration)
+        .ease(d3.easeLinear)
+        .attrs({
+          x: d => x(d.value)+5,
+          y: d => y(top_n+1)+5
+        })
+        .remove();
+    
+    yearText.html(~~year);
                 
                 if(year == 2019) ticker.stop();
                 year = d3.format('.1f')((+year) + 5);
-            },1600);
+            },tickDuration);
             
             
             // This is a lightly modified version of Mike Bostock’s text halo function from @d3/connected-scatterplot
